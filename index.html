@@ -19,20 +19,9 @@
 				<div class="grid gap-4">
 					<label class="block">
 						<div class="flex items-center gap-2 mb-2">
-							<span>Upload Photo</span>
+							<span>Upload Photos</span>
 						</div>
-						<input type="file" accept="image/*"
-							@change="(e) => handleImageUpload(e, 'image')"
-							class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
-					</label>
-
-					<!-- Logo Upload -->
-					<label class="block">
-						<div class="flex items-center gap-2 mb-2">
-							<span>Upload Logo</span>
-						</div>
-						<input type="file" accept="image/*"
-							@change="(e) => handleImageUpload(e, 'logo')"
+						<input type="file" accept="image/*" multiple @change="handleImageUpload"
 							class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
 					</label>
 				</div>
@@ -45,10 +34,9 @@
 				</div>
 
 				<!-- Alert -->
-				<div v-if="!hasImage || !hasLogo"
-					class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+				<div v-if="!images.length" class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
 					<div class="flex items-center gap-2 text-yellow-800">
-						<p>Please upload both a photo and a logo to start</p>
+						<p>Please upload photos to start</p>
 					</div>
 				</div>
 
@@ -56,7 +44,7 @@
 				<canvas ref="canvas" class="w-full h-auto border rounded-lg"></canvas>
 
 				<!-- Download Button -->
-				<button v-if="hasImage && hasLogo" @click="downloadImage"
+				<button v-if="images.length" @click="downloadImage"
 					class="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">
 					Download Watermarked Image
 				</button>
@@ -65,97 +53,96 @@
 	</div>
 
 	<script>
-		const {createApp, ref, watch} = Vue
+		const {createApp, ref, watch, onMounted} = Vue;
 
 		createApp({
 			setup() {
-				const hasImage = ref(false)
-				const hasLogo = ref(false)
-				const opacity = ref(0.7)
-				const canvas = ref(null)
-				let mainImage = null
-				let logoImage = null
+				const images = ref([]);
+				const opacity = ref(0.7);
+				const canvas = ref(null);
+				let logoImage = null;
 
-				const handleImageUpload = (e, type) => {
-					const file = e.target.files[0]
-					if (file) {
-						const reader = new FileReader()
-						reader.onload = (event) => {
-							const img = new Image()
-							img.onload = () => {
-								if (type === 'image') {
-									mainImage = img
-									hasImage.value = true
-								} else {
-									logoImage = img
-									hasLogo.value = true
-								}
-								processImage()
-							}
-							img.src = event.target.result
-						}
-						reader.readAsDataURL(file)
+				onMounted(() => {
+					// Load the default logo
+					const defaultLogo = new Image();
+					defaultLogo.src = 'logos/logo1.png';
+					defaultLogo.onload = () => {
+						logoImage = defaultLogo;
+					};
+				});
+
+				const handleImageUpload = (e) => {
+					const files = e.target.files;
+					images.value = Array.from(files).map(file => {
+						const img = new Image();
+						img.src = URL.createObjectURL(file);
+						return img;
+					});
+
+					// Wait for the first image to load before processing
+					if (images.value.length) {
+						images.value[0].onload = () => processImage(images.value[0]);
 					}
-				}
+				};
 
-				const processImage = () => {
-					if (!mainImage || !logoImage || !canvas.value) return
+				const processImage = (image) => {
+					if (!image || !logoImage || !canvas.value) return;
 
-					const ctx = canvas.value.getContext('2d')
+					const ctx = canvas.value.getContext('2d');
 
 					// Set canvas size to match uploaded image
-					canvas.value.width = mainImage.width
-					canvas.value.height = mainImage.height
+					canvas.value.width = image.width;
+					canvas.value.height = image.height;
 
 					// Draw main image
-					ctx.drawImage(mainImage, 0, 0)
+					ctx.drawImage(image, 0, 0);
 
 					// Calculate logo size (20% of image width)
-					const logoWidth = mainImage.width * 0.2
-					const logoHeight = (logoImage.height * logoWidth) / logoImage.width
+					const logoWidth = image.width * 0.2;
+					const logoHeight = (logoImage.height * logoWidth) / logoImage.width;
 
 					// Set logo opacity
-					ctx.globalAlpha = opacity.value
+					ctx.globalAlpha = opacity.value;
 
-					// Draw logo in bottom right corner with padding
-					const padding = 20
+					// Draw logo in bottom right corner with 100px padding
+					const padding = 100;
 					ctx.drawImage(
 						logoImage,
-						canvas.value.width - logoWidth - padding,
-						canvas.value.height - logoHeight - padding,
+						image.width - logoWidth - padding,
+						image.height - logoHeight - padding,
 						logoWidth,
 						logoHeight
-					)
+					);
 
 					// Reset opacity
-					ctx.globalAlpha = 1
-				}
+					ctx.globalAlpha = 1;
+				};
 
 				const downloadImage = () => {
-					if (!canvas.value) return
+					if (!canvas.value) return;
 
-					const link = document.createElement('a')
-					link.download = 'watermarked-image.png'
-					link.href = canvas.value.toDataURL('image/png')
-					link.click()
-				}
+					const link = document.createElement('a');
+					link.download = 'watermarked-image.png';
+					link.href = canvas.value.toDataURL('image/png');
+					link.click();
+				};
 
 				watch(opacity, () => {
-					if (hasImage.value && hasLogo.value) {
-						processImage()
+					// Re-process the first image if available
+					if (images.value.length) {
+						processImage(images.value[0]);
 					}
-				})
+				});
 
 				return {
-					hasImage,
-					hasLogo,
+					images,
 					opacity,
 					canvas,
 					handleImageUpload,
-					downloadImage
-				}
-			}
-		}).mount('#app')
+					downloadImage,
+				};
+			},
+		}).mount('#app');
 	</script>
 </body>
 
