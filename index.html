@@ -54,6 +54,7 @@
 		</div>
 	</div>
 
+
 	<script>
 		const {createApp, ref, watch, onMounted} = Vue;
 
@@ -78,6 +79,7 @@
 					images.value = Array.from(files).map(file => {
 						const img = new Image();
 						img.src = URL.createObjectURL(file);
+						img.originalName = file.name.split('.').slice(0, -1).join('.'); // Extract name without extension
 						return img;
 					});
 
@@ -125,25 +127,27 @@
 
 					if (images.value.length === 1) {
 						// Handle single image download
-						processImage(images.value[0]);
+						const image = images.value[0];
+						processImage(image);
 						const dataUrl = canvas.value.toDataURL('image/png');
 						const link = document.createElement('a');
 						link.href = dataUrl;
-						link.download = 'watermarked-image.png';
+						link.download = `${image.originalName}-logo.png`;
 						link.click();
 					} else {
 						// Handle multiple images with ZIP download
 						const zip = new JSZip();
 						for (let i = 0; i < images.value.length; i++) {
 							// Process each image
-							processImage(images.value[i]);
+							const image = images.value[i];
+							processImage(image);
 
 							// Convert canvas to data URL
 							const dataUrl = canvas.value.toDataURL('image/png');
 
 							// Add to ZIP file
 							const base64Data = dataUrl.split(',')[1];
-							zip.file(`watermarked-image-${i + 1}.png`, base64Data, {base64: true});
+							zip.file(`${image.originalName}-logo.png`, base64Data, {base64: true});
 						}
 
 						// Generate ZIP and trigger download
@@ -169,6 +173,7 @@
 			},
 		}).mount('#app');
 	</script>
+
 </body>
 
 </html>
