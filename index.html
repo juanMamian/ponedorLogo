@@ -6,6 +6,8 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Image Watermarker</title>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.3.4/vue.global.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 	<link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
 </head>
 
@@ -44,9 +46,9 @@
 				<canvas ref="canvas" class="w-full h-auto border rounded-lg"></canvas>
 
 				<!-- Download Button -->
-				<button v-if="images.length" @click="downloadImage"
+				<button v-if="images.length" @click="downloadImages"
 					class="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">
-					Download Watermarked Image
+					Download Watermarked Images
 				</button>
 			</div>
 		</div>
@@ -104,8 +106,8 @@
 					// Set logo opacity
 					ctx.globalAlpha = opacity.value;
 
-					// Draw logo in bottom right corner with 100px padding
-					const padding = 100;
+					// Draw logo in bottom right corner with 130px padding
+					const padding = 130;
 					ctx.drawImage(
 						logoImage,
 						image.width - logoWidth - padding,
@@ -118,13 +120,25 @@
 					ctx.globalAlpha = 1;
 				};
 
-				const downloadImage = () => {
-					if (!canvas.value) return;
+				const downloadImages = async () => {
+					if (!canvas.value || !images.value.length) return;
 
-					const link = document.createElement('a');
-					link.download = 'watermarked-image.png';
-					link.href = canvas.value.toDataURL('image/png');
-					link.click();
+					const zip = new JSZip();
+					for (let i = 0; i < images.value.length; i++) {
+						// Process each image
+						processImage(images.value[i]);
+
+						// Convert canvas to data URL
+						const dataUrl = canvas.value.toDataURL('image/png');
+
+						// Add to ZIP file
+						const base64Data = dataUrl.split(',')[1];
+						zip.file(`watermarked-image-${i + 1}.png`, base64Data, {base64: true});
+					}
+
+					// Generate ZIP and trigger download
+					const zipBlob = await zip.generateAsync({type: 'blob'});
+					saveAs(zipBlob, 'watermarked-images.zip');
 				};
 
 				watch(opacity, () => {
@@ -139,7 +153,7 @@
 					opacity,
 					canvas,
 					handleImageUpload,
-					downloadImage,
+					downloadImages,
 				};
 			},
 		}).mount('#app');
