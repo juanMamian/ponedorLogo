@@ -55,6 +55,7 @@
 	</div>
 
 
+
 	<script>
 		const {createApp, ref, watch, onMounted} = Vue;
 
@@ -92,17 +93,33 @@
 				const processImage = (image) => {
 					if (!image || !logoImage || !canvas.value) return;
 
+					// Calculate the cropping for a square image
+					const size = Math.min(image.width, image.height);
+					const offsetX = (image.width - size) / 2;
+					const offsetY = (image.height - size) / 2;
+
+					// Scale down if larger than 1080x1080
+					const maxDimension = 1080;
+					let finalSize = size;
+					if (size > maxDimension) {
+						finalSize = maxDimension;
+					}
+
+					// Set canvas size to final scaled dimensions
+					canvas.value.width = finalSize;
+					canvas.value.height = finalSize;
+
 					const ctx = canvas.value.getContext('2d');
 
-					// Set canvas size to match uploaded image
-					canvas.value.width = image.width;
-					canvas.value.height = image.height;
+					// Draw the cropped and scaled main image
+					ctx.drawImage(
+						image,
+						offsetX, offsetY, size, size, // Crop source
+						0, 0, finalSize, finalSize // Fit to canvas
+					);
 
-					// Draw main image
-					ctx.drawImage(image, 0, 0);
-
-					// Calculate logo size (20% of image width)
-					const logoWidth = image.width * 0.2;
+					// Calculate logo size (20% of canvas width)
+					const logoWidth = finalSize * 0.2;
 					const logoHeight = (logoImage.height * logoWidth) / logoImage.width;
 
 					// Set logo opacity
@@ -112,8 +129,8 @@
 					const padding = 130;
 					ctx.drawImage(
 						logoImage,
-						image.width - logoWidth - padding,
-						image.height - logoHeight - padding,
+						finalSize - logoWidth - padding,
+						finalSize - logoHeight - padding,
 						logoWidth,
 						logoHeight
 					);
@@ -173,6 +190,7 @@
 			},
 		}).mount('#app');
 	</script>
+
 
 </body>
 
